@@ -4,9 +4,9 @@ const {
 	getExercises,
 	getExerciseById,
 	createExercise,
-	addSetToExercise,
 	updateExercise,
 	deleteExercise,
+	addSetToExercise,
 	getSetsByExerciseId,
 } = require("../controllers/exerciseController");
 
@@ -15,7 +15,7 @@ router.get("/:id", getExerciseById);
 router.post("/", createExercise);
 router.put("/:id", updateExercise);
 router.delete("/:id", deleteExercise);
-router.get("/:id/sets", getSetsByExerciseId); // Add this line for fetching sets
-router.post("/:id/sets", addSetToExercise); // Add this line for adding sets
+router.post("/:id/sets", addSetToExercise);
+router.get("/:id/sets", getSetsByExerciseId);
 
 module.exports = router;
