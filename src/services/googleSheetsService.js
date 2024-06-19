@@ -60,36 +60,16 @@ const getSetsByExerciseId = async (exerciseId) => {
 };
 
 const appendSheetData = async (sheetTitle, values) => {
-	try {
-		console.log(`Fetching spreadsheet info for sheet: ${sheetTitle}`);
-		await doc.loadInfo(); // Load the document properties and worksheets
-		const sheet = doc.sheetsByTitle[sheetTitle];
-		if (!sheet) {
-			sheet = await doc.addSheet({
-				title: sheetTitle,
-				headerValues: ["id", "exerciseId", "repetitions", "weight"],
-			});
-		}
-		await sheet.loadHeaderRow(); // Load the header row explicitly
-		console.log(`Sheet headers: ${sheet.headerValues.join(", ")}`);
-
-		if (!sheet.headerValues.length) {
-			throw new Error(
-				`Header values are not yet loaded for sheet: ${sheetTitle}`
-			);
-		}
-
-		const row = await sheet.addRow(values);
-
-		// Log the row ID without causing circular structure error
-		console.log(`Row added with values: ${JSON.stringify(values)}`);
-		return row;
-	} catch (error) {
-		console.error(`Error in appendSheetData: ${error.message}`);
-		throw new Error(`Failed to add row: ${error.message}`);
+	await doc.loadInfo();
+	let sheet = doc.sheetsByTitle[sheetTitle];
+	if (!sheet) {
+		sheet = await doc.addSheet({
+			title: sheetTitle,
+			headerValues: ["id", "exerciseId", "repetitions", "weight"],
+		});
 	}
+	await sheet.addRow(values);
 };
-
 const updateSheetData = async (sheetTitle, id, updates) => {
 	await doc.loadInfo();
 	const sheet = doc.sheetsByTitle[sheetTitle];
