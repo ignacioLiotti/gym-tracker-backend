@@ -4,9 +4,9 @@ const {
 	getExercises,
 	getExerciseById,
 	createExercise,
+	addSetToExercise,
 	updateExercise,
 	deleteExercise,
-	addSetToExercise,
 	getSetsByExerciseId,
 } = require("../controllers/exerciseController");
 

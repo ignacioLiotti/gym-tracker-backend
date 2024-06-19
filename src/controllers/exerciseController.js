@@ -105,9 +105,18 @@ const getSetsByExerciseId = async (req, res) => {
 		console.log(`Fetching sets for exercise ID: ${id}`);
 
 		const sheetTitle = `Exercise_${id}_Sets`;
-		await createSheetIfNotExists(sheetTitle); // Ensure the sheet exists
+		console.log(`Sheet title generated: ${sheetTitle}`);
 
+		// Ensure the sheet exists
+		console.log(`Ensuring the sheet ${sheetTitle} exists`);
+		await createSheetIfNotExists(sheetTitle);
+		console.log(`Sheet ${sheetTitle} is confirmed to exist or was created`);
+
+		// Fetch the sets data
+		console.log(`Fetching data from sheet ${sheetTitle}`);
 		const sets = await getSheetData(sheetTitle);
+		console.log(`Fetched sets data: ${JSON.stringify(sets)}`);
+
 		res.json(sets);
 	} catch (error) {
 		console.error(`Error fetching sets: ${error.message}`);
