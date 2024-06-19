@@ -91,11 +91,6 @@ const getSetsByExerciseId = async (req, res) => {
 		const sheetTitle = `Exercise_${id}_Sets`;
 		console.log(`Sheet title generated: ${sheetTitle}`);
 
-		// Ensure the sheet exists
-		console.log(`Ensuring the sheet ${sheetTitle} exists`);
-		await createSheetIfNotExists(sheetTitle);
-		console.log(`Sheet ${sheetTitle} is confirmed to exist or was created`);
-
 		// Fetch the sets data
 		console.log(`Fetching data from sheet ${sheetTitle}`);
 		const sets = await getSheetData(sheetTitle);
