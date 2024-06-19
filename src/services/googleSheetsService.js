@@ -42,7 +42,10 @@ const getSetsByExerciseId = async (exerciseId) => {
 	const sheetTitle = `Exercise_${exerciseId}_Sets`;
 	const sheet = doc.sheetsByTitle[sheetTitle];
 	if (!sheet) {
-		throw new Error(`Sheet with title "${sheetTitle}" not found`);
+		console.log(
+			`Sheet with title "${sheetTitle}" not found, returning empty data structure`
+		);
+		return [];
 	}
 
 	await sheet.loadHeaderRow(); // Ensure headers are loaded
@@ -50,6 +53,13 @@ const getSetsByExerciseId = async (exerciseId) => {
 
 	const rows = await sheet.getRows();
 	console.log(`Fetched rows from sheet: ${JSON.stringify(rows)}`);
+
+	if (rows.length === 0) {
+		console.log(
+			`No rows found in sheet ${sheetTitle}, returning empty data structure`
+		);
+		return [];
+	}
 
 	return rows.map((row) => ({
 		id: row.id,
@@ -60,16 +70,36 @@ const getSetsByExerciseId = async (exerciseId) => {
 };
 
 const appendSheetData = async (sheetTitle, values) => {
-	await doc.loadInfo();
-	let sheet = doc.sheetsByTitle[sheetTitle];
-	if (!sheet) {
-		sheet = await doc.addSheet({
-			title: sheetTitle,
-			headerValues: ["id", "exerciseId", "repetitions", "weight"],
-		});
+	try {
+		console.log(`Fetching spreadsheet info for sheet: ${sheetTitle}`);
+		await doc.loadInfo(); // Load the document properties and worksheets
+		const sheet = doc.sheetsByTitle[sheetTitle];
+		if (!sheet) {
+			sheet = await doc.addSheet({
+				title: sheetTitle,
+				headerValues: ["id", "exerciseId", "repetitions", "weight"],
+			});
+		}
+		await sheet.loadHeaderRow(); // Load the header row explicitly
+		console.log(`Sheet headers: ${sheet.headerValues.join(", ")}`);
+
+		if (!sheet.headerValues.length) {
+			throw new Error(
+				`Header values are not yet loaded for sheet: ${sheetTitle}`
+			);
+		}
+
+		const row = await sheet.addRow(values);
+
+		// Log the row ID without causing circular structure error
+		console.log(`Row added with values: ${JSON.stringify(values)}`);
+		return row;
+	} catch (error) {
+		console.error(`Error in appendSheetData: ${error.message}`);
+		throw new Error(`Failed to add row: ${error.message}`);
 	}
-	await sheet.addRow(values);
 };
+
 const updateSheetData = async (sheetTitle, id, updates) => {
 	await doc.loadInfo();
 	const sheet = doc.sheetsByTitle[sheetTitle];

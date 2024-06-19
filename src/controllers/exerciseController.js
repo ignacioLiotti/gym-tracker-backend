@@ -53,19 +53,6 @@ const createExercise = async (req, res) => {
 	}
 };
 
-const createSheetIfNotExists = async (sheetTitle) => {
-	await doc.loadInfo();
-	if (!doc.sheetsByTitle[sheetTitle]) {
-		const sheet = await doc.addSheet({
-			title: sheetTitle,
-			headerValues: ["id", "exerciseId", "repetitions", "weight"],
-		});
-		console.log(`Created new sheet with title: ${sheetTitle}`);
-		return sheet;
-	}
-	return doc.sheetsByTitle[sheetTitle];
-};
-
 const addSetToExercise = async (req, res) => {
 	const { id } = req.params;
 	const { repetitions, weight } = req.body;
@@ -87,10 +74,7 @@ const addSetToExercise = async (req, res) => {
 			weight,
 		};
 
-		const sheetTitle = `Exercise_${id}_Sets`;
-		await createSheetIfNotExists(sheetTitle); // Ensure the sheet exists
-
-		await appendSheetData(sheetTitle, set); // Add new row to the specific exercise's set sheet
+		await appendSheetData(`Exercise_${id}_Sets`, set); // Add new row to the specific exercise's set sheet
 
 		res.json({ message: "Set added successfully" });
 	} catch (error) {
