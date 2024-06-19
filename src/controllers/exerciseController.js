@@ -53,6 +53,19 @@ const createExercise = async (req, res) => {
 	}
 };
 
+const createSheetIfNotExists = async (sheetTitle) => {
+	await doc.loadInfo();
+	if (!doc.sheetsByTitle[sheetTitle]) {
+		const sheet = await doc.addSheet({
+			title: sheetTitle,
+			headerValues: ["id", "exerciseId", "repetitions", "weight"],
+		});
+		console.log(`Created new sheet with title: ${sheetTitle}`);
+		return sheet;
+	}
+	return doc.sheetsByTitle[sheetTitle];
+};
+
 const addSetToExercise = async (req, res) => {
 	const { id } = req.params;
 	const { repetitions, weight } = req.body;
@@ -74,7 +87,10 @@ const addSetToExercise = async (req, res) => {
 			weight,
 		};
 
-		await appendSheetData(`Exercise_${id}_Sets`, set); // Add new row to the specific exercise's set sheet
+		const sheetTitle = `Exercise_${id}_Sets`;
+		await createSheetIfNotExists(sheetTitle); // Ensure the sheet exists
+
+		await appendSheetData(sheetTitle, set); // Add new row to the specific exercise's set sheet
 
 		res.json({ message: "Set added successfully" });
 	} catch (error) {
@@ -87,7 +103,11 @@ const getSetsByExerciseId = async (req, res) => {
 	try {
 		const { id } = req.params;
 		console.log(`Fetching sets for exercise ID: ${id}`);
-		const sets = await getSheetData(`Exercise_${id}_Sets`);
+
+		const sheetTitle = `Exercise_${id}_Sets`;
+		await createSheetIfNotExists(sheetTitle); // Ensure the sheet exists
+
+		const sets = await getSheetData(sheetTitle);
 		res.json(sets);
 	} catch (error) {
 		console.error(`Error fetching sets: ${error.message}`);
