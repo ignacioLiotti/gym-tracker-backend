@@ -65,9 +65,11 @@ const appendSheetData = async (sheetTitle, values) => {
 		await doc.loadInfo(); // Load the document properties and worksheets
 		const sheet = doc.sheetsByTitle[sheetTitle];
 		if (!sheet) {
-			throw new Error(`Sheet with title "${sheetTitle}" not found`);
+			sheet = await doc.addSheet({
+				title: sheetTitle,
+				headerValues: ["id", "exerciseId", "repetitions", "weight"],
+			});
 		}
-
 		await sheet.loadHeaderRow(); // Load the header row explicitly
 		console.log(`Sheet headers: ${sheet.headerValues.join(", ")}`);
 
