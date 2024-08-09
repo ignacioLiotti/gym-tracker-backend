@@ -8,6 +8,7 @@ const {
 
 const getExercises = async (req, res) => {
 	try {
+		console.log("try");
 		const data = await getSheetData("Exercises");
 		res.json(data);
 	} catch (error) {
@@ -72,6 +73,7 @@ const addSetToExercise = async (req, res) => {
 			exerciseId: id,
 			repetitions,
 			weight,
+			timestamp: new Date().toISOString(), // Add timestamp
 		};
 
 		await appendSheetData(`Exercise_${id}_Sets`, set); // Add new row to the specific exercise's set sheet
