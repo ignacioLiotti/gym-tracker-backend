@@ -17,16 +17,16 @@ app.use(
 );
 app.use(express.json());
 
-const SPREADSHEET_ID = "1nA2B-EJ24uyRSyj2VSk8EAoi6VAPHLntfpYwu2Cp-XU"; // Replace with your spreadsheet ID
-const creds = require("../credentials.json");
-
 const serviceAccountAuth = new JWT({
-	email: creds.client_email,
-	key: creds.private_key,
+	email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+	key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
 	scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
-const doc = new GoogleSpreadsheet(SPREADSHEET_ID, serviceAccountAuth);
+const doc = new GoogleSpreadsheet(
+	process.env.SPREADSHEET_ID,
+	serviceAccountAuth
+);
 
 // Helper function to create a new sheet for an exercise
 async function createExerciseSheet(exerciseId, exerciseName) {
