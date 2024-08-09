@@ -10,7 +10,7 @@ app.use(
 	cors({
 		origin: [
 			"https://gym-tracker-frontend.vercel.app",
-			"http://localhost:3000",
+			"http://localhost:3001",
 		],
 		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization"],
@@ -20,7 +20,7 @@ app.use(
 app.use(express.json());
 
 const serviceAccountAuth = new JWT({
-	email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+	email: process.env.GOOGLE_CLIENT_EMAIL,
 	key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
 	scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
