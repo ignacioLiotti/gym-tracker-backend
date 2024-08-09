@@ -4,7 +4,14 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 const { JWT } = require("google-auth-library");
 
 const app = express();
-app.use(cors());
+app.use(
+	cors({
+		// origin: "http://localhost:3000",
+		origin: "https://gym-tracker-frontend.vercel.app",
+		methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+		credentials: true,
+	})
+);
 app.use(express.json());
 
 const SPREADSHEET_ID = "1nA2B-EJ24uyRSyj2VSk8EAoi6VAPHLntfpYwu2Cp-XU"; // Replace with your spreadsheet ID
