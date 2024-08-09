@@ -6,9 +6,12 @@ const { JWT } = require("google-auth-library");
 const app = express();
 app.use(
 	cors({
-		// origin: "http://localhost:3000",
-		origin: "https://gym-tracker-frontend.vercel.app",
-		methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+		origin: [
+			"https://gym-tracker-frontend.vercel.app",
+			"http://localhost:3000",
+		],
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
 		credentials: true,
 	})
 );
