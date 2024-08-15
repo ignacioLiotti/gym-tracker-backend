@@ -12,7 +12,6 @@ app.use(
 			"https://gym-tracker-frontend.vercel.app",
 			"http://localhost:3001",
 			"http://localhost:3000",
-
 		],
 		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization"],
@@ -200,7 +199,7 @@ app.post("/api/exercises/:exerciseId/sets", async (req, res) => {
 			return res.status(404).json({ error: "Exercise not found" });
 		}
 
-		const { repetitions, weight } = req.body;
+		const { repetitions, weight, duration } = req.body;
 		const timestamp = new Date().toISOString();
 
 		// Add new set to the exercise-specific sheet
@@ -209,6 +208,7 @@ app.post("/api/exercises/:exerciseId/sets", async (req, res) => {
 			repetitions.toString(),
 			weight.toString(),
 			timestamp,
+			duration.toString(),
 		]);
 
 		const newSet = {
@@ -216,6 +216,7 @@ app.post("/api/exercises/:exerciseId/sets", async (req, res) => {
 			repetitions: parseInt(newRow._rawData[1]),
 			weight: parseFloat(newRow._rawData[2]),
 			timestamp: newRow._rawData[3],
+			duration: newRow._rawData[4],
 		};
 
 		// Update the "set" column in the general exercises sheet
@@ -225,7 +226,7 @@ app.post("/api/exercises/:exerciseId/sets", async (req, res) => {
 		);
 
 		if (exerciseRow) {
-			exerciseRow._rawData[4] = `${newSet.repetitions},${newSet.weight},${newSet.timestamp}`;
+			exerciseRow._rawData[4] = `${newSet.repetitions},${newSet.weight},${newSet.timestamp},${newSet.duration}`;
 			console.log("aca", exerciseRow);
 			await exerciseRow.save();
 			console.log("Exercise 'set' column updated:", exerciseRow.set);
@@ -277,193 +278,245 @@ app.delete("/api/exercises/:exerciseId/sets/:setId", async (req, res) => {
 
 async function createRoutineSheet(routineId, routineName) {
 	const sheet = await doc.addSheet({
-	  title: `Routine_${routineId}`,
-	  headerValues: ["id", "name", "exerciseIds"],
+		title: `Routine_${routineId}`,
+		headerValues: ["id", "name", "exerciseIds"],
 	});
 	console.log(`Created new sheet for routine: ${routineName}`);
 	return sheet;
 }
-  
-  // ... (keep existing endpoints)
-  
-  // GET all routines
-  app.get("/api/routines", async (req, res) => {
+
+// GET all routines
+app.get("/api/routines", async (req, res) => {
 	try {
-	  await doc.loadInfo();
-	  const sheet = doc.sheetsByTitle["Routines"];
-	  const rows = await sheet.getRows();
-  
-	  const routines = rows.map((row) => ({
-		id: row._rawData[0],
-		name: row._rawData[1],
-		exerciseIds: row._rawData[2].split(','),
-	  }));
-  
-	  console.log("Fetched routines:", routines);
-	  res.json(routines);
+		await doc.loadInfo();
+		const sheet = doc.sheetsByTitle["Routines"];
+		const rows = await sheet.getRows();
+
+		const routines = rows.map((row) => ({
+			id: row._rawData[0],
+			name: row._rawData[1],
+			exerciseIds: row._rawData[2].split(","),
+		}));
+
+		console.log("Fetched routines:", routines);
+		res.json(routines);
 	} catch (error) {
-	  console.error("Error fetching routines:", error);
-	  res.status(500).json({ error: "Internal Server Error", details: error.message });
+		console.error("Error fetching routines:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
 	}
-  });
-  
-  // POST new routine
-  app.post("/api/routines", async (req, res) => {
+});
+
+// POST new routine
+app.post("/api/routines", async (req, res) => {
 	try {
-	  await doc.loadInfo();
-	  const sheet = doc.sheetsByTitle["Routines"];
-	  const { name } = req.body;
-  
-	  const id = Date.now().toString();
-	  const newRow = await sheet.addRow([id, name, '']);
-  
-	  // Create a new sheet for this routine
-	  await createRoutineSheet(id, name);
-  
-	  const newRoutine = {
-		id: newRow._rawData[0],
-		name: newRow._rawData[1],
-		exerciseIds: [],
-	  };
-  
-	  console.log("New routine created:", newRoutine);
-	  res.status(201).json(newRoutine);
+		await doc.loadInfo();
+		const sheet = doc.sheetsByTitle["Routines"];
+		const { name } = req.body;
+
+		const id = Date.now().toString();
+		const newRow = await sheet.addRow([id, name, ""]);
+
+		// Create a new sheet for this routine
+		await createRoutineSheet(id, name);
+
+		const newRoutine = {
+			id: newRow._rawData[0],
+			name: newRow._rawData[1],
+			exerciseIds: [],
+		};
+
+		console.log("New routine created:", newRoutine);
+		res.status(201).json(newRoutine);
 	} catch (error) {
-	  console.error("Error creating routine:", error);
-	  res.status(500).json({ error: "Internal Server Error", details: error.message });
+		console.error("Error creating routine:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
 	}
-  });
-  
-  // GET single routine
-  app.get("/api/routines/:id", async (req, res) => {
+});
+
+// GET single routine
+app.get("/api/routines/:id", async (req, res) => {
 	try {
-	  await doc.loadInfo();
-	  const routineSheet = doc.sheetsByTitle[`Routine_${req.params.id}`];
-  
-	  if (!routineSheet) {
-		return res.status(404).json({ error: "Routine not found" });
-	  }
-  
-	  const rows = await routineSheet.getRows();
-	  const exerciseIds = rows.map(row => row._rawData[0]);
-  
-	  const routineData = {
-		id: req.params.id,
-		name: routineSheet.title.replace('Routine_', ''),
-		exerciseIds: exerciseIds,
-	  };
-  
-	  console.log("Fetched routine:", routineData);
-	  res.json(routineData);
+		await doc.loadInfo();
+		const routineSheet = doc.sheetsByTitle[`Routine_${req.params.id}`];
+
+		if (!routineSheet) {
+			return res.status(404).json({ error: "Routine not found" });
+		}
+
+		const rows = await routineSheet.getRows();
+		const exerciseIds = rows.map((row) => row._rawData[0]);
+
+		const routineData = {
+			id: req.params.id,
+			name: routineSheet.title.replace("Routine_", ""),
+			exerciseIds: exerciseIds,
+		};
+
+		console.log("Fetched routine:", routineData);
+		res.json(routineData);
 	} catch (error) {
-	  console.error("Error fetching routine:", error);
-	  res.status(500).json({ error: "Internal Server Error", details: error.message });
+		console.error("Error fetching routine:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
 	}
-  });
-  
-  // PUT update routine (for reordering exercises)
-  app.put("/api/routines/:id", async (req, res) => {
+});
+
+// PUT update routine (for reordering exercises)
+app.put("/api/routines/:id", async (req, res) => {
 	try {
-	  await doc.loadInfo();
-	  const sheet = doc.sheetsByTitle["Routines"];
-	  const rows = await sheet.getRows();
-  
-	  const routineIndex = rows.findIndex((row) => row._rawData[0] === req.params.id);
-  
-	  if (routineIndex === -1) {
-		return res.status(404).json({ error: "Routine not found" });
-	  }
-  
-	  const { exerciseIds } = req.body;
-	  rows[routineIndex]._rawData[2] = exerciseIds.join(',');
-	  await rows[routineIndex].save();
-  
-	  const updatedRoutine = {
-		id: rows[routineIndex]._rawData[0],
-		name: rows[routineIndex]._rawData[1],
-		exerciseIds: rows[routineIndex]._rawData[2].split(','),
-	  };
-  
-	  console.log("Updated routine:", updatedRoutine);
-	  res.json(updatedRoutine);
+		await doc.loadInfo();
+		const sheet = doc.sheetsByTitle["Routines"];
+		const rows = await sheet.getRows();
+
+		const routineIndex = rows.findIndex(
+			(row) => row._rawData[0] === req.params.id
+		);
+
+		if (routineIndex === -1) {
+			return res.status(404).json({ error: "Routine not found" });
+		}
+
+		const { exerciseIds } = req.body;
+		rows[routineIndex]._rawData[2] = exerciseIds.join(",");
+		await rows[routineIndex].save();
+
+		const updatedRoutine = {
+			id: rows[routineIndex]._rawData[0],
+			name: rows[routineIndex]._rawData[1],
+			exerciseIds: rows[routineIndex]._rawData[2].split(","),
+		};
+
+		console.log("Updated routine:", updatedRoutine);
+		res.json(updatedRoutine);
 	} catch (error) {
-	  console.error("Error updating routine:", error);
-	  res.status(500).json({ error: "Internal Server Error", details: error.message });
+		console.error("Error updating routine:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
 	}
-  });
-  
-  // POST add exercise to routine
-  app.post("/api/routines/:routineId/exercises", async (req, res) => {
+});
+
+// POST add exercise to routine
+app.post("/api/routines/:routineId/exercises", async (req, res) => {
 	try {
-	  await doc.loadInfo();
-	  const routineSheet = doc.sheetsByTitle[`Routine_${req.params.routineId}`];
-  
-	  if (!routineSheet) {
-		return res.status(404).json({ error: "Routine not found" });
-	  }
-  
-	  const { exerciseId } = req.body;
-  
-	  // Add a new row to the routine sheet
-	  const newRow = await routineSheet.addRow({
-		id: exerciseId,
-		// You might want to fetch the exercise name from the Exercises sheet
-		// and add it here as well
-	  });
-  
-	  console.log("Added exercise to routine:", newRow);
-  
-	  // Fetch all rows to return the updated list of exercises
-	  const rows = await routineSheet.getRows();
-	  const exerciseIds = rows.map(row => row._rawData[0]);
-  
-	  const updatedRoutine = {
-		id: req.params.routineId,
-		exerciseIds: exerciseIds,
-	  };
-  
-	  res.status(201).json(updatedRoutine);
+		await doc.loadInfo();
+		const routineSheet = doc.sheetsByTitle[`Routine_${req.params.routineId}`];
+
+		if (!routineSheet) {
+			return res.status(404).json({ error: "Routine not found" });
+		}
+
+		const { exerciseId } = req.body;
+
+		// Add a new row to the routine sheet
+		const newRow = await routineSheet.addRow({
+			id: exerciseId,
+			// You might want to fetch the exercise name from the Exercises sheet
+			// and add it here as well
+		});
+
+		console.log("Added exercise to routine:", newRow);
+
+		// Fetch all rows to return the updated list of exercises
+		const rows = await routineSheet.getRows();
+		const exerciseIds = rows.map((row) => row._rawData[0]);
+
+		const updatedRoutine = {
+			id: req.params.routineId,
+			exerciseIds: exerciseIds,
+		};
+
+		res.status(201).json(updatedRoutine);
 	} catch (error) {
-	  console.error("Error adding exercise to routine:", error);
-	  res.status(500).json({ error: "Internal Server Error", details: error.message });
+		console.error("Error adding exercise to routine:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
 	}
-  });
-  
-  // DELETE remove exercise from routine
-  app.delete("/api/routines/:routineId/exercises/:exerciseId", async (req, res) => {
+});
+
+// DELETE remove exercise from routine
+app.delete(
+	"/api/routines/:routineId/exercises/:exerciseId",
+	async (req, res) => {
+		try {
+			await doc.loadInfo();
+			const sheet = doc.sheetsByTitle["Routines"];
+			const rows = await sheet.getRows();
+
+			const routineIndex = rows.findIndex(
+				(row) => row._rawData[0] === req.params.routineId
+			);
+
+			if (routineIndex === -1) {
+				return res.status(404).json({ error: "Routine not found" });
+			}
+
+			const currentExerciseIds = rows[routineIndex]._rawData[2]
+				? rows[routineIndex]._rawData[2].split(",")
+				: [];
+			const updatedExerciseIds = currentExerciseIds.filter(
+				(id) => id !== req.params.exerciseId
+			);
+
+			rows[routineIndex]._rawData[2] = updatedExerciseIds.join(",");
+			await rows[routineIndex].save();
+
+			const updatedRoutine = {
+				id: rows[routineIndex]._rawData[0],
+				name: rows[routineIndex]._rawData[1],
+				exerciseIds: rows[routineIndex]._rawData[2].split(","),
+			};
+
+			console.log("Removed exercise from routine:", updatedRoutine);
+			res.json(updatedRoutine);
+		} catch (error) {
+			console.error("Error removing exercise from routine:", error);
+			res
+				.status(500)
+				.json({ error: "Internal Server Error", details: error.message });
+		}
+	}
+);
+
+app.delete("/api/routines/:id", async (req, res) => {
 	try {
-	  await doc.loadInfo();
-	  const sheet = doc.sheetsByTitle["Routines"];
-	  const rows = await sheet.getRows();
-  
-	  const routineIndex = rows.findIndex((row) => row._rawData[0] === req.params.routineId);
-  
-	  if (routineIndex === -1) {
-		return res.status(404).json({ error: "Routine not found" });
-	  }
-  
-	  const currentExerciseIds = rows[routineIndex]._rawData[2] ? rows[routineIndex]._rawData[2].split(',') : [];
-	  const updatedExerciseIds = currentExerciseIds.filter(id => id !== req.params.exerciseId);
-	  
-	  rows[routineIndex]._rawData[2] = updatedExerciseIds.join(',');
-	  await rows[routineIndex].save();
-  
-	  const updatedRoutine = {
-		id: rows[routineIndex]._rawData[0],
-		name: rows[routineIndex]._rawData[1],
-		exerciseIds: rows[routineIndex]._rawData[2].split(','),
-	  };
-  
-	  console.log("Removed exercise from routine:", updatedRoutine);
-	  res.json(updatedRoutine);
+		await doc.loadInfo();
+		const routinesSheet = doc.sheetsByTitle["Routines"];
+		const rows = await routinesSheet.getRows();
+
+		const rowIndex = rows.findIndex((row) => row._rawData[0] === req.params.id);
+
+		if (rowIndex === -1) {
+			console.log("Routine not found");
+			return res.status(404).json({ error: "Routine not found" });
+		}
+
+		// Delete the row from the Routines sheet
+		await rows[rowIndex].delete();
+
+		// Delete the routine's individual sheet
+		const routineSheet = doc.sheetsByTitle[`Routine_${req.params.id}`];
+		if (routineSheet) {
+			await routineSheet.delete();
+		}
+
+		console.log("Routine and its sheet deleted successfully");
+		res.status(200).json({ message: "Routine deleted successfully" });
 	} catch (error) {
-	  console.error("Error removing exercise from routine:", error);
-	  res.status(500).json({ error: "Internal Server Error", details: error.message });
+		console.error("Error deleting routine:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
 	}
-  });
+});
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
 	console.log(`Server running on port ${PORT}`);
 });
-
