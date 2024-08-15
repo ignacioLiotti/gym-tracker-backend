@@ -295,7 +295,6 @@ app.get("/api/routines", async (req, res) => {
 		const routines = rows.map((row) => ({
 			id: row._rawData[0],
 			name: row._rawData[1],
-			exerciseIds: row._rawData[2].split(","),
 		}));
 
 		console.log("Fetched routines:", routines);
