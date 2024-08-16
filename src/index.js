@@ -347,6 +347,8 @@ app.get("/api/routines/:id", async (req, res) => {
 			return res.status(404).json({ error: "Routine not found" });
 		}
 
+		console.log("routine" + routine._rawData[2]);
+
 		const routineData = {
 			id: routine._rawData[0],
 			name: routine._rawData[1],
@@ -402,10 +404,12 @@ app.put("/api/routines/:id", async (req, res) => {
 app.post("/api/routines/:routineId/exercises", async (req, res) => {
 	try {
 		await doc.loadInfo();
-		const sheet = doc.sheetsByTitle["Routines"];
-		const rows = await sheet.getRows();
+		const routinesSheet = doc.sheetsByTitle["Routines"];
+		const exercisesSheet = doc.sheetsByTitle["Exercises"];
+		const routineRows = await routinesSheet.getRows();
+		const exerciseRows = await exercisesSheet.getRows();
 
-		const routineIndex = rows.findIndex(
+		const routineIndex = routineRows.findIndex(
 			(row) => row._rawData[0] === req.params.routineId
 		);
 
@@ -414,20 +418,50 @@ app.post("/api/routines/:routineId/exercises", async (req, res) => {
 		}
 
 		const { exerciseId } = req.body;
-		const currentExercises = rows[routineIndex]._rawData[2]
-			? rows[routineIndex]._rawData[2].split(",")
-			: [];
-		currentExercises.push(exerciseId);
-		rows[routineIndex]._rawData[2] = currentExercises.join(",");
-		await rows[routineIndex].save();
+		console.log("Attempting to add exercise ID:", exerciseId);
 
+		// Check if the exercise exists
+		const exerciseExists = exerciseRows.some(
+			(row) => row._rawData[0] === exerciseId
+		);
+		if (!exerciseExists) {
+			console.log("Exercise not found:", exerciseId);
+			return res.status(404).json({ error: "Exercise not found" });
+		}
+
+		let currentExercises = routineRows[routineIndex].get("exercises")
+			? routineRows[routineIndex]
+					.get("exercises")
+					.split(",")
+					.filter((id) => id.trim() !== "")
+			: [];
+
+		console.log("Current exercises before addition:", currentExercises);
+
+		// Check if the exercise is already in the routine
+		if (currentExercises.includes(exerciseId)) {
+			console.log("Exercise already in routine:", exerciseId);
+			return res.status(400).json({ error: "Exercise already in routine" });
+		}
+
+		currentExercises.push(exerciseId);
+		console.log("Current exercises after addition:", currentExercises);
+
+		// Update the exercises column directly
+		routineRows[routineIndex].set("exercises", currentExercises.join(","));
+
+		// Force save the changes
+		await routineRows[routineIndex].save({ raw: true });
+
+		// Fetch the updated row to confirm changes
+		await routinesSheet.loadCells();
 		const updatedRoutine = {
-			id: rows[routineIndex]._rawData[0],
-			name: rows[routineIndex]._rawData[1],
-			exercises: rows[routineIndex]._rawData[2].split(","),
+			id: routineRows[routineIndex].get("id"),
+			name: routineRows[routineIndex].get("name"),
+			exercises: routineRows[routineIndex].get("exercises").split(","),
 		};
 
-		console.log("Added exercise to routine:", updatedRoutine);
+		console.log("Updated routine:", updatedRoutine);
 		res.status(201).json(updatedRoutine);
 	} catch (error) {
 		console.error("Error adding exercise to routine:", error);
