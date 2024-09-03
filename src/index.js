@@ -53,7 +53,10 @@ app.get("/api/exercises", async (req, res) => {
 			name: row._rawData[1],
 			description: row._rawData[2],
 			muscleGroup: row._rawData[3],
-			set: row._rawData[4],
+			lastRecordedSet: row._rawData[4],
+			totSets: row._rawData[5],
+			lastWorkoutReps: row._rawData[6],
+			lastWorkoutWeight: row._rawData[7],
 		}));
 
 		console.log("Fetched exercises:", exercises);
@@ -74,7 +77,14 @@ app.post("/api/exercises", async (req, res) => {
 		const { name, description, muscleGroup } = req.body;
 
 		const id = Date.now().toString();
-		const newRow = await sheet.addRow([id, name, description, muscleGroup]);
+		const newRow = await sheet.addRow([
+			id,
+			name,
+			description,
+			muscleGroup,
+			"",
+			"",
+		]);
 
 		// Create a new sheet for this exercise
 		await createExerciseSheet(id, name);
@@ -84,12 +94,47 @@ app.post("/api/exercises", async (req, res) => {
 			name: newRow._rawData[1],
 			description: newRow._rawData[2],
 			muscleGroup: newRow._rawData[3],
+			lastRecordedSet: newRow._rawData[4],
+			totSets: newRow._rawData[5],
 		};
 
 		console.log("New exercise created:", newExercise);
 		res.status(201).json(newExercise);
 	} catch (error) {
 		console.error("Error creating exercise:", error);
+		res
+			.status(500)
+			.json({ error: "Internal Server Error", details: error.message });
+	}
+});
+
+// PUT update exercise
+app.put("/api/exercises/:id", async (req, res) => {
+	const exerciseId = req.params.id;
+	const updatedExercise = req.body;
+
+	try {
+		await doc.loadInfo();
+		const sheet = doc.sheetsByTitle["Exercises"];
+		const rows = await sheet.getRows();
+
+		const row = rows.find((row) => row._rawData[0] === exerciseId);
+		if (!row) {
+			return res.status(404).json({ error: "Exercise not found" });
+		}
+
+		row._rawData[1] = updatedExercise.name || row._rawData[1];
+		row._rawData[2] = updatedExercise.description || row._rawData[2];
+		row._rawData[3] = updatedExercise.muscleGroup || row._rawData[3];
+		row._rawData[4] = updatedExercise.sets || row._rawData[4];
+		row._rawData[5] = updatedExercise.totSets || row._rawData[5];
+
+		await row.save();
+
+		console.log(`Updated exercise: ${exerciseId}`);
+		res.json({ message: "Exercise updated successfully" });
+	} catch (error) {
+		console.error("Error updating exercise:", error);
 		res
 			.status(500)
 			.json({ error: "Internal Server Error", details: error.message });
@@ -114,6 +159,8 @@ app.get("/api/exercises/:id", async (req, res) => {
 			name: exercise._rawData[1],
 			description: exercise._rawData[2],
 			muscleGroup: exercise._rawData[3],
+			lastRecordedSet: exercise._rawData[4],
+			totSets: exercise._rawData[5],
 		};
 
 		console.log("Fetched exercise:", exerciseData);
@@ -227,9 +274,8 @@ app.post("/api/exercises/:exerciseId/sets", async (req, res) => {
 
 		if (exerciseRow) {
 			exerciseRow._rawData[4] = `${newSet.repetitions},${newSet.weight},${newSet.timestamp},${newSet.duration}`;
-			console.log("aca", exerciseRow);
 			await exerciseRow.save();
-			console.log("Exercise 'set' column updated:", exerciseRow.set);
+			console.log("Exercise 'set' column updated:", exerciseRow._rawData[4]);
 		} else {
 			console.log("Exercise not found in the Exercises sheet");
 		}
@@ -276,15 +322,6 @@ app.delete("/api/exercises/:exerciseId/sets/:setId", async (req, res) => {
 	}
 });
 
-async function createRoutineSheet(routineId, routineName) {
-	const sheet = await doc.addSheet({
-		title: `Routine_${routineId}`,
-		headerValues: ["id", "name", "exerciseIds"],
-	});
-	console.log(`Created new sheet for routine: ${routineName}`);
-	return sheet;
-}
-
 // GET all routines
 app.get("/api/routines", async (req, res) => {
 	try {
@@ -296,6 +333,7 @@ app.get("/api/routines", async (req, res) => {
 			id: row._rawData[0],
 			name: row._rawData[1],
 			exercises: row._rawData[2] ? row._rawData[2].split(",") : [],
+			sets: row._rawData[3],
 		}));
 
 		console.log("Fetched routines:", routines);
@@ -347,8 +385,6 @@ app.get("/api/routines/:id", async (req, res) => {
 			return res.status(404).json({ error: "Routine not found" });
 		}
 
-		console.log("routine" + routine._rawData[2]);
-
 		const routineData = {
 			id: routine._rawData[0],
 			name: routine._rawData[1],
@@ -381,13 +417,17 @@ app.put("/api/routines/:id", async (req, res) => {
 		}
 
 		const { exercises } = req.body;
+		const { sets } = req.body;
+		console.log("Attempting to update routine exercises:", req.body);
 		rows[routineIndex]._rawData[2] = exercises.join(",");
+		rows[routineIndex]._rawData[3] = sets.join(",");
 		await rows[routineIndex].save();
 
 		const updatedRoutine = {
 			id: rows[routineIndex]._rawData[0],
 			name: rows[routineIndex]._rawData[1],
 			exercises: rows[routineIndex]._rawData[2].split(","),
+			totSets: rows[routineIndex]._rawData[3],
 		};
 
 		console.log("Updated routine:", updatedRoutine);
@@ -429,9 +469,8 @@ app.post("/api/routines/:routineId/exercises", async (req, res) => {
 			return res.status(404).json({ error: "Exercise not found" });
 		}
 
-		let currentExercises = routineRows[routineIndex].get("exercises")
-			? routineRows[routineIndex]
-					.get("exercises")
+		let currentExercises = routineRows[routineIndex]._rawData[2]
+			? routineRows[routineIndex]._rawData[2]
 					.split(",")
 					.filter((id) => id.trim() !== "")
 			: [];
@@ -447,18 +486,16 @@ app.post("/api/routines/:routineId/exercises", async (req, res) => {
 		currentExercises.push(exerciseId);
 		console.log("Current exercises after addition:", currentExercises);
 
-		// Update the exercises column directly
-		routineRows[routineIndex].set("exercises", currentExercises.join(","));
+		// Update the exercises column
+		routineRows[routineIndex]._rawData[2] = currentExercises.join(",");
 
-		// Force save the changes
-		await routineRows[routineIndex].save({ raw: true });
+		// Save the changes
+		await routineRows[routineIndex].save();
 
-		// Fetch the updated row to confirm changes
-		await routinesSheet.loadCells();
 		const updatedRoutine = {
-			id: routineRows[routineIndex].get("id"),
-			name: routineRows[routineIndex].get("name"),
-			exercises: routineRows[routineIndex].get("exercises").split(","),
+			id: routineRows[routineIndex]._rawData[0],
+			name: routineRows[routineIndex]._rawData[1],
+			exercises: routineRows[routineIndex]._rawData[2].split(","),
 		};
 
 		console.log("Updated routine:", updatedRoutine);
